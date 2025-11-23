@@ -164,9 +164,10 @@ export default function UploadModal({ isOpen, onClose, onSuccess, initialLocatio
       // Success!
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error creating postcard:', err);
-      setError(err.message || 'Failed to create postcard. Please try again.');
+      const error = err as Error;
+      setError(error.message || 'Failed to create postcard. Please try again.');
     } finally {
       setLoading(false);
     }

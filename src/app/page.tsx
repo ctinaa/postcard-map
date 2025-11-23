@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabaseClient';
 import { Postcard } from '@/types/postcard';
@@ -66,16 +66,11 @@ interface LocationData {
 
 export default function Home() {
   const [postcards, setPostcards] = useState<Postcard[]>(demoPostcards);
-  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialLocation, setInitialLocation] = useState<LocationData | undefined>(undefined);
   const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
 
-  useEffect(() => {
-    fetchPostcards();
-  }, []);
-
-  async function fetchPostcards() {
+  const fetchPostcards = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('postcards')
@@ -85,7 +80,6 @@ export default function Home() {
       if (error) {
         console.error('Error fetching postcards:', error);
         // Keep using demo data on error
-        setLoading(false);
         return;
       }
 
@@ -95,10 +89,13 @@ export default function Home() {
       // If no data, keep demo postcards
     } catch (error) {
       console.error('Error fetching postcards:', error);
-    } finally {
-      setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchPostcards();
+  }, [fetchPostcards]);
 
   const handleMapClick = async (lat: number, lng: number) => {
     // Reverse geocode to get location details
@@ -141,7 +138,7 @@ export default function Home() {
     fetchPostcards(); // Refresh postcards after successful upload
   };
 
-  const handleLocationSearch = (lat: number, lng: number, placeName: string) => {
+  const handleLocationSearch = (lat: number, lng: number) => {
     setFlyToLocation({ lat, lng, zoom: 13 });
     // Reset after a moment to allow re-selection of the same location
     setTimeout(() => setFlyToLocation(null), 3000);

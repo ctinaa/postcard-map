@@ -213,7 +213,7 @@ export default function LocationPicker({ onLocationSelect, initialCenter }: Loca
       </div>
 
       <p className="text-sm text-gray-600">
-        💡 Click on the map or search for a location to set your postcard's location
+        💡 Click on the map or search for a location to set your postcard&apos;s location
       </p>
     </div>
   );
