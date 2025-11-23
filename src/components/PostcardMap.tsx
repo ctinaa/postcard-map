@@ -53,7 +53,7 @@ function MapBounds({ postcards }: { postcards: Postcard[] }) {
 }
 
 // Component to handle flying to a specific location
-function FlyToLocation({ location }: { location: { lat: number; lng: number; zoom?: number } | null }) {
+function FlyToLocation({ location }: { location: { lat: number; lng: number; zoom?: number } | null | undefined }) {
   const map = useMap();
 
   useEffect(() => {
@@ -71,6 +71,7 @@ function FlyToLocation({ location }: { location: { lat: number; lng: number; zoo
 // Component to handle map clicks
 function MapClickHandler({ onMapClick }: { onMapClick?: (lat: number, lng: number) => void }) {
   const [clickPosition, setClickPosition] = useState<L.LatLng | null>(null);
+  const map = useMap();
 
   useMapEvents({
     click(e) {
@@ -78,8 +79,20 @@ function MapClickHandler({ onMapClick }: { onMapClick?: (lat: number, lng: numbe
     },
   });
 
+  useEffect(() => {
+    const handlePopupClose = () => {
+      setClickPosition(null);
+    };
+
+    map.on('popupclose', handlePopupClose);
+    
+    return () => {
+      map.off('popupclose', handlePopupClose);
+    };
+  }, [map]);
+
   return clickPosition ? (
-    <Popup position={clickPosition} onClose={() => setClickPosition(null)}>
+    <Popup position={clickPosition}>
       <div className="text-center p-2">
         <p className="text-sm text-gray-700 mb-3">Add a postcard at this location?</p>
         <button
