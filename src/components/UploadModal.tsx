@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import dynamic from 'next/dynamic';
+import CameraCapture from '@/components/CameraCapture';
 
 const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
   ssr: false,
@@ -29,6 +30,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess, initialLocatio
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
   
   // Form state
   const [title, setTitle] = useState('');
@@ -52,7 +54,11 @@ export default function UploadModal({ isOpen, onClose, onSuccess, initialLocatio
         setImagePreview(null);
         setLocation(initialLocation || null);
         setError(null);
+        setShowCamera(false);
       }, 300); // Wait for animation
+    } else {
+      // When modal opens, show camera immediately
+      setShowCamera(true);
     }
   }, [isOpen, initialLocation]);
 
@@ -69,40 +75,19 @@ export default function UploadModal({ isOpen, onClose, onSuccess, initialLocatio
     }
   };
 
-  const handleCameraCapture = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
-      
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.play();
+  const handleCameraCapture = (file: File) => {
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    setShowCamera(false);
+    setError(null);
+  };
 
-      video.onloadedmetadata = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        
-        if (ctx) {
-          ctx.drawImage(video, 0, 0);
-          
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-              setImageFile(file);
-              setImagePreview(canvas.toDataURL('image/jpeg'));
-            }
-            
-            stream.getTracks().forEach(track => track.stop());
-          }, 'image/jpeg', 0.95);
-        }
-      };
-    } catch (err) {
-      console.error('Camera error:', err);
-      setError('Unable to access camera. Please check permissions or upload a file instead.');
-    }
+  const handleCameraClose = () => {
+    setShowCamera(false);
   };
 
   const openFileDialog = () => {
@@ -175,6 +160,16 @@ export default function UploadModal({ isOpen, onClose, onSuccess, initialLocatio
 
   if (!isOpen) return null;
 
+  // Show camera interface first
+  if (showCamera && !imageFile) {
+    return (
+      <CameraCapture 
+        onCapture={handleCameraCapture}
+        onClose={handleCameraClose}
+      />
+    );
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -212,44 +207,66 @@ export default function UploadModal({ isOpen, onClose, onSuccess, initialLocatio
 
               {/* Image Upload Section */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">📸 Upload Image</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">📸 Postcard Photo</h3>
                 
                 <div className="space-y-4">
-                  {imagePreview && (
-                    <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
-                      <Image
-                        src={imagePreview}
-                        alt="Preview"
-                        fill
-                        className="object-contain"
-                      />
+                  {imagePreview ? (
+                    <div className="relative">
+                      <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                        <Image
+                          src={imagePreview}
+                          alt="Preview"
+                          fill
+                          className="object-contain"
+                        />
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowCamera(true)}
+                          className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                        >
+                          📷 Retake Photo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openFileDialog}
+                          className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                        >
+                          📁 Choose Different File
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <div className="text-5xl mb-3">📮</div>
+                      <p className="text-gray-600 mb-4">No photo selected</p>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowCamera(true)}
+                          className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Take Photo
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={openFileDialog}
+                          className="flex-1 py-3 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium flex items-center justify-center gap-2"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Choose File
+                        </button>
+                      </div>
                     </div>
                   )}
-
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={openFileDialog}
-                      className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      Choose File
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={handleCameraCapture}
-                      className="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Take Photo
-                    </button>
-                  </div>
 
                   <input
                     ref={fileInputRef}
