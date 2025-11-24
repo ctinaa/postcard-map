@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { processPostcardImage } from '@/utils/imageProcessing';
 
 interface CameraCaptureProps {
   onCapture: (file: File) => void;
@@ -15,15 +16,14 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  useEffect(() => {
-    startCamera();
-    
-    return () => {
-      stopCamera();
-    };
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -46,16 +46,18 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
       console.error('Camera error:', err);
       setError('Unable to access camera. Please check permissions and try again.');
     }
-  };
+  }, []);
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  };
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    startCamera();
+    
+    return () => {
+      stopCamera();
+    };
+  }, [startCamera, stopCamera]);
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) return;
 
     const video = videoRef.current;
@@ -71,11 +73,24 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       // Convert to blob
-      canvas.toBlob((blob) => {
+      canvas.toBlob(async (blob) => {
         if (blob) {
-          const file = new File([blob], `postcard-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          stopCamera();
-          onCapture(file);
+          try {
+            // Create initial file
+            const rawFile = new File([blob], `postcard-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            
+            // Process image (color correction, sharpening, etc.)
+            const processedFile = await processPostcardImage(rawFile);
+            
+            stopCamera();
+            onCapture(processedFile);
+          } catch (error) {
+            console.error('Image processing error:', error);
+            // Fallback to raw image if processing fails
+            const file = new File([blob], `postcard-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            stopCamera();
+            onCapture(file);
+          }
         }
       }, 'image/jpeg', 0.95);
     }
@@ -136,25 +151,36 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
         {/* Postcard Frame Overlay */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {/* Dark overlay with cutout */}
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-black/60" />
           
-          {/* Frame guide */}
+          {/* Frame guide - Standard postcard ratio 3:2 (landscape) */}
           <div className="relative z-10">
-            <div className="border-4 border-white rounded-lg shadow-2xl" style={{ 
-              width: 'min(80vw, 400px)', 
-              height: 'min(50vh, 280px)',
-              boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+            <div className="border-4 border-white rounded-sm shadow-2xl" style={{ 
+              width: 'min(90vw, 600px)', 
+              height: 'calc(min(90vw, 600px) * 0.667)', // 3:2 ratio
+              boxShadow: '0 0 0 9999px rgba(0,0,0,0.6)'
             }}>
-              {/* Corner markers */}
-              <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-blue-400 rounded-tl-lg" />
-              <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-blue-400 rounded-tr-lg" />
-              <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-blue-400 rounded-bl-lg" />
-              <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-blue-400 rounded-br-lg" />
+              {/* Corner markers - larger and more prominent */}
+              <div className="absolute -top-2 -left-2 w-12 h-12 border-t-4 border-l-4 border-blue-400" />
+              <div className="absolute -top-2 -right-2 w-12 h-12 border-t-4 border-r-4 border-blue-400" />
+              <div className="absolute -bottom-2 -left-2 w-12 h-12 border-b-4 border-l-4 border-blue-400" />
+              <div className="absolute -bottom-2 -right-2 w-12 h-12 border-b-4 border-r-4 border-blue-400" />
+              
+              {/* Center crosshair for alignment */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8">
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-full bg-white/50" />
+                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-0.5 w-full bg-white/50" />
+              </div>
             </div>
             
             {/* Instructions */}
-            <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm whitespace-nowrap">
-              📮 Center your postcard in the frame
+            <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 text-center">
+              <div className="bg-black/80 text-white px-6 py-3 rounded-lg text-base font-medium">
+                📮 Align postcard edges with the frame
+              </div>
+              <div className="text-white text-sm mt-2 bg-black/60 px-4 py-2 rounded-full">
+                Auto color correction will be applied
+              </div>
             </div>
           </div>
         </div>
