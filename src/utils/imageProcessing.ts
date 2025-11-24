@@ -33,7 +33,7 @@ export async function processPostcardImage(imageFile: File): Promise<File> {
 
           // Apply image enhancements
           enhanceColors(data);
-          adjustBrightnessContrast(data, 1.1, 1.15); // Slight brightness and contrast boost
+          adjustBrightnessContrast(data, 0.95, 1.1); // Reduce brightness, slight contrast boost
           sharpenImage(imageData);
 
           // Put processed image back

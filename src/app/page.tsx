@@ -72,6 +72,7 @@ export default function Home() {
 
   const fetchPostcards = useCallback(async () => {
     try {
+      console.log('Fetching postcards from Supabase...');
       const { data, error } = await supabase
         .from('postcards')
         .select('id, title, image_url, city, country, latitude, longitude')
@@ -79,12 +80,17 @@ export default function Home() {
 
       if (error) {
         console.error('Error fetching postcards:', error);
+        console.log('Using demo postcards as fallback');
         // Keep using demo data on error
         return;
       }
 
+      console.log('Fetched postcards:', data);
       if (data && data.length > 0) {
+        console.log(`Found ${data.length} postcards, updating map`);
         setPostcards(data);
+      } else {
+        console.log('No postcards in database, showing demo postcards');
       }
       // If no data, keep demo postcards
     } catch (error) {
