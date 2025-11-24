@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  basePath: '/post-cards',
+  assetPrefix: '/post-cards',
   images: {
     remotePatterns: [
       {
