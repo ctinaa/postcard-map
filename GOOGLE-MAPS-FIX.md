@@ -2,8 +2,8 @@
 
 ## 🔍 Your Current Setup
 
-- **API Key**: `AIzaSyCJ-RbYlVWlS2fQqmDTkERThjNiFvXzTIg`
-- **Status**: Key is set in `.env.local` ✅
+- **API Key**: Stored securely in `.env.local` ✅
+- **Status**: Key is configured
 - **Issue**: API not working (likely missing API enablement or restrictions)
 
 ---
@@ -25,7 +25,7 @@
 ### **Step 2: Check API Key Restrictions**
 
 1. Go to **"APIs & Services"** → **"Credentials"**
-2. Click on your API key: `AIzaSyCJ...`
+2. Click on your API key
 3. Under **"API restrictions"**:
    - Choose: **"Restrict key"**
    - Select ONLY these APIs:
@@ -66,7 +66,8 @@
 Run this in your browser console to test if the API is working:
 
 ```javascript
-fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=Paris&key=AIzaSyCJ-RbYlVWlS2fQqmDTkERThjNiFvXzTIg`)
+// Replace YOUR_API_KEY with your actual API key
+fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=Paris&key=YOUR_API_KEY`)
   .then(r => r.json())
   .then(d => console.log(d))
 ```
